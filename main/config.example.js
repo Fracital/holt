@@ -6,7 +6,8 @@
 // standalone: nothing here comes from another service's config.
 
 export default {
-  // holt's own Postgres database (schema.sql, applied at startup).
+  // holt's own Postgres database (schema.sql, applied at startup). On amph (since 2026-11-17) it is the
+  // shared Postgres on terp.db over pinned TLS: 'postgres://holt:CHANGE_ME@terp.db:5432/holt?sslmode=verify-full&sslrootcert=/etc/ssl/terp-db/ca.crt'
   db: { url: 'postgres://holt:CHANGE_ME@127.0.0.1:5432/holt' },
 
   // The Discord bot (holt-discord) and the chat's Discord reads. Never run the bot locally with the
