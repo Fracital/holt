@@ -34,6 +34,8 @@ send --delete "$ROOT/main/chat-api-root/" "$TARGET:$REMOTE/chat-api-root/"
 # The bot runs ensureSchema() on start (vendored db.ts); it looks for schema.sql in its cwd.
 send "$ROOT/schema.sql" "$TARGET:$REMOTE/"
 send "$ROOT/deploy/holt.service" "$ROOT/deploy/holt-discord.service" "$ROOT/deploy/holt-chat.service" "$ROOT/deploy/holt-lab.service" "$TARGET:$REMOTE/deploy/"
+# amph's OpenResty routes for holt; activate installs them (holt-deploy-root sync_openresty).
+send "$ROOT/deploy/openresty/55-holt.conf" "$ROOT/deploy/openresty/56-holtlab.conf" "$TARGET:$REMOTE/deploy/"
 
 echo "==> activate"
 $SSH "$TARGET" activate

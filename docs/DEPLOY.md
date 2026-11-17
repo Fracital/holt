@@ -11,7 +11,7 @@ CI deploys on every push to `main` (`.github/workflows/deploy.yml`): typecheck, 
 | `holt.service` | amph, `127.0.0.1:8830`, `/opt/holt` (embed page, loader, identity exchange) |
 | `holt-discord.service` | amph, `/opt/holt` (the bot; verify callback on `discord.port`, 8823) |
 | `holt.abstracteducation.loan` | DNS-only CNAME to `byod.abstracteducation.loan` (Cloudflare). The edges terminate TLS with a shared on-demand certificate and relay to amph `:9080` |
-| `/etc/openresty/conf.d/55-holt.conf` | amph; routes the name to `:8830` (`deploy/openresty/55-holt.conf`) |
+| `/etc/openresty/conf.d/55-holt.conf` | amph; routes the name to `:8830` (`deploy/openresty/55-holt.conf`, installed by every deploy) |
 | `/usr/local/sbin/holt-deploy-gate` | amph; forced command for CI's key, runs as `deploy` (`deploy/holt-deploy-gate.sh`) |
 | `/usr/local/sbin/holt-deploy-root` | amph; the two root steps `deploy` may sudo (`deploy/holt-deploy-root.sh`) |
 
@@ -84,7 +84,9 @@ Issued 2026-10-24: `abulxt` (`YrQcgTjDv0QH_3_6`, no expiry), `abstract` (`nKJEVj
    Store the private half as the repo secret `HOLT_DEPLOY_KEY`; set the variables `HOLT_DEPLOY_HOST`
    (`172.16.5.3`), `HOLT_DEPLOY_JUMP` (`root@91.199.82.174`) and `HOLT_DEPLOY_KNOWN_HOSTS` (divide's
    and amph's host key lines, amph's under `172.16.5.3`).
-5. Copy `deploy/openresty/55-holt.conf` to `/etc/openresty/conf.d/`, `openresty -t`, reload.
+5. Nothing to copy by hand for OpenResty: `activate` installs `deploy/openresty/55-holt.conf` and
+   `56-holtlab.conf` into amph's `/etc/openresty/conf.d/` on every deploy (tested, reloaded, checked,
+   rolled back on failure). abulxt's deploy owns the rest of that tree. Never edit them on amph.
 6. Cloudflare: `holt` CNAME `byod.abstracteducation.loan`, proxy off.
 7. Push to `main` (or run the workflow) and watch `activate`.
 
