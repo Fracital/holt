@@ -4,9 +4,13 @@
 #   push to main   the same, then deploy/deploy.sh to amph (the service AND the Discord bot).
 #
 # Repo config (y9x/holt):
-#   secrets.HOLT_DEPLOY_KEY      ed25519 private key; on amph it is forced through
-#                                /usr/local/sbin/holt-deploy-gate (rsync into /opt/holt + activate only).
-#   vars.HOLT_DEPLOY_HOST        amph's address. vars.HOLT_DEPLOY_KNOWN_HOSTS: its pinned host key line.
+#   secrets.HOLT_DEPLOY_KEY      ed25519 private key. On amph it logs in as the unprivileged `deploy`
+#                                user, forced through /usr/local/sbin/holt-deploy-gate (rsync into
+#                                /opt/holt + activate only). On divide it is jump-only (command
+#                                /bin/false, permitopen amph:22).
+#   vars.HOLT_DEPLOY_HOST        amph's address behind divide (172.16.5.3).
+#   vars.HOLT_DEPLOY_JUMP        the jump host, user@address (root@91.199.82.174).
+#   vars.HOLT_DEPLOY_KNOWN_HOSTS pinned host key lines for the jump and for amph (under HOLT_DEPLOY_HOST).
 #
 
 name: Deploy
@@ -63,19 +67,38 @@ jobs:
         env:
           HOLT_DEPLOY_KEY: ${{ secrets.HOLT_DEPLOY_KEY }}
           HOLT_DEPLOY_KNOWN_HOSTS: ${{ vars.HOLT_DEPLOY_KNOWN_HOSTS }}
+          HOLT_DEPLOY_HOST: ${{ vars.HOLT_DEPLOY_HOST }}
+          HOLT_DEPLOY_JUMP: ${{ vars.HOLT_DEPLOY_JUMP }}
         run: |
-          if [ -z "$HOLT_DEPLOY_KEY" ] || [ -z "$HOLT_DEPLOY_KNOWN_HOSTS" ]; then
-            echo "::error::HOLT_DEPLOY_KEY / HOLT_DEPLOY_KNOWN_HOSTS are not set; cannot deploy."
+          if [ -z "$HOLT_DEPLOY_KEY" ] || [ -z "$HOLT_DEPLOY_KNOWN_HOSTS" ] || [ -z "$HOLT_DEPLOY_HOST" ]; then
+            echo "::error::HOLT_DEPLOY_KEY / HOLT_DEPLOY_KNOWN_HOSTS / HOLT_DEPLOY_HOST are not set; cannot deploy."
             exit 1
           fi
           install -d -m 700 ~/.ssh
           printf '%s\n' "$HOLT_DEPLOY_KEY" > ~/.ssh/holt_deploy
           chmod 600 ~/.ssh/holt_deploy
           printf '%s\n' "$HOLT_DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # amph is private behind divide's NAT; the same key jumps through divide's sshd.
+          jump=${HOLT_DEPLOY_JUMP:-root@91.199.82.174}
+          cat > ~/.ssh/config <<EOF
+          Host holt-jump
+            HostName ${jump#*@}
+            User ${jump%@*}
+          Host amph
+            HostName $HOLT_DEPLOY_HOST
+            User deploy
+            ProxyJump holt-jump
+          Host *
+            IdentityFile ~/.ssh/holt_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Deploy to amph
         if: github.event_name != 'pull_request'
         env:
-          HOLT_SSH_TARGET: root@${{ vars.HOLT_DEPLOY_HOST }}
-          HOLT_SSH: ssh -i ~/.ssh/holt_deploy -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+          HOLT_SSH_TARGET: deploy@amph
+          HOLT_SSH: ssh
         run: bash deploy/deploy.sh

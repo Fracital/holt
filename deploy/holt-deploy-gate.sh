@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
 # holt deploy gate: the forced command for holt's CI key on amph. Installed by hand (never by CI) as
-# /usr/local/sbin/holt-deploy-gate, with the key restricted in /root/.ssh/authorized_keys:
+# /usr/local/sbin/holt-deploy-gate. The key logs in as the unprivileged `deploy` user, restricted in
+# /home/deploy/.ssh/authorized_keys (owned by root, so deploy cannot change its own restrictions):
 #
 #   restrict,command="/usr/local/sbin/holt-deploy-gate" ssh-ed25519 AAAA… holt-ci@y9x/holt
 #
 # The key can do exactly two things, and nothing else (no shell, no pty, no forwarding):
 #
 #   rsync into /opt/holt   `rsync --server` receiving only (never --sender), destination under
-#                          /opt/holt, only the flags deploy/deploy.sh sends.
-#   activate               npm ci, install the two unit files, restart holt, restart the bot, and
-#                          prove both are healthy. If the bot does not log in, abulxt-discord is
-#                          started again (Conflicts= stops holt-discord) and the deploy fails.
+#                          /opt/holt, only the flags deploy/deploy.sh sends. Runs as deploy.
+#   activate               npm ci as deploy, then `sudo holt-deploy-root activate` installs the unit
+#                          files, restarts holt and the bot, and proves both are healthy.
 #
-# This limits what a leaked key can do to "deploy holt", which still means running repo code as
-# root: holt's services run as root, like abulxt's. A dedicated user is a separate hardening step.
+# deploy owns the code under /opt/holt and nothing else there: /opt/holt is root:deploy 1775, so
+# deploy can add and replace its own files but cannot rename or replace root's (config.js, which is
+# root 600 and unreadable to deploy). The only root it reaches is the two fixed sudo commands in
+# /etc/sudoers.d/deploy (deploy/holt-deploy-root.sh). The services still run as root, so a deploy
+# still runs repo code as root; giving each service its own user is the next step.
+#
+# Started as root (an old root key line, during the cutover) it drops to deploy first.
 
 set -euo pipefail
+if (( EUID == 0 )); then
+  exec runuser -u deploy -- "$0" "$@"
+fi
 ROOT=/opt/holt
+HELPER=/usr/local/sbin/holt-deploy-root
 log() { logger -t holt-deploy -- "$*"; echo "holt-deploy: $*" >&2; }
 
 cmd=${SSH_ORIGINAL_COMMAND:-}
@@ -46,6 +55,8 @@ if [[ ${args[0]:-} == rsync ]]; then
     if [[ $arg == --delete && $may_delete == 1 ]]; then continue; fi
     deny
   done
+  # Take back anything root wrote since the last deploy (a service, a root npm ci) before writing.
+  sudo -n "$HELPER" prepare
   mkdir -p "$dest"
   # No symlink anywhere on the way: a link planted earlier must not carry a later write elsewhere.
   [[ $(realpath -e "$dest")/ == "$dest" ]] || deny
@@ -56,63 +67,10 @@ fi
 if [[ $cmd == activate ]]; then
   cd "$ROOT"
   [[ -f config.js ]] || { log 'config.js is missing; set up the host first (docs/DEPLOY.md)'; exit 1; }
+  sudo -n "$HELPER" prepare
   log 'activate: npm ci'
   npm ci --no-audit --no-fund --loglevel=error
-  install -m 0644 deploy/holt.service /etc/systemd/system/holt.service
-  install -m 0644 deploy/holt-discord.service /etc/systemd/system/holt-discord.service
-  install -m 0644 deploy/holt-chat.service /etc/systemd/system/holt-chat.service
-  install -m 0644 deploy/holt-lab.service /etc/systemd/system/holt-lab.service
-  systemctl daemon-reload
-  systemctl enable holt holt-discord holt-chat holt-lab >/dev/null 2>&1
-  # The test partner (lab/server.mjs). Its data lives outside /opt/holt, so a deploy never touches it.
-  install -d -m 700 /opt/holt-lab-data
-  systemctl restart holt-lab
-
-  # The chat API first: holt-service proxies to it, and a platform may already route chat traffic here.
-  log 'activate: restart holt-chat'
-  systemctl restart holt-chat
-  for _ in $(seq 1 60); do
-    [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8831/api/discord/bridge/guilds) == 200 ]] && break
-    sleep 0.5
-  done
-  if [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8831/api/discord/bridge/guilds) != 200 ]]; then
-    log 'holt-chat did not become healthy'; journalctl -u holt-chat -n 30 --no-pager >&2; exit 1
-  fi
-
-  log 'activate: restart holt'
-  systemctl restart holt
-  for _ in $(seq 1 40); do
-    curl -fsS -o /dev/null http://127.0.0.1:8830/healthz && break
-    sleep 0.5
-  done
-  curl -fsS -o /dev/null http://127.0.0.1:8830/healthz || { log 'holt did not become healthy'; journalctl -u holt -n 30 --no-pager >&2; exit 1; }
-
-  # The bot exits cleanly when config.js has no discord.botToken; nothing to cut over then.
-  if ! node --input-type=module -e "const c = (await import('file://$ROOT/config.js')).default; process.exit(c?.discord?.botToken ? 0 : 1)"; then
-    log 'activate: no discord.botToken in config.js; bot not started'
-    exit 0
-  fi
-  # abulxt's deploy re-enables its copy on every run until it stops shipping the unit; keep it from
-  # racing holt-discord at boot.
-  systemctl disable abulxt-discord >/dev/null 2>&1 || true
-
-  log 'activate: restart holt-discord'
-  since=$(date '+%Y-%m-%d %H:%M:%S')
-  systemctl restart holt-discord
-  for _ in $(seq 1 60); do
-    if journalctl -u holt-discord --since "$since" --no-pager -o cat 2>/dev/null | grep -q 'logged in as'; then
-      log 'holt-discord logged in'
-      exit 0
-    fi
-    sleep 1
-  done
-  log 'holt-discord did not log in within 60s; handing the bot back to abulxt-discord'
-  journalctl -u holt-discord --since "$since" --no-pager -o cat | tail -30 >&2
-  if systemctl cat abulxt-discord >/dev/null 2>&1; then
-    systemctl enable abulxt-discord >/dev/null 2>&1 || true
-    systemctl start abulxt-discord
-  fi
-  exit 1
+  exec sudo -n "$HELPER" activate
 fi
 
 deny

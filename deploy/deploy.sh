@@ -2,15 +2,16 @@
 # Ship a built holt to amph and activate it. Run by CI (.github/workflows/deploy.yml) after
 # `make build` and `make e2e`; never by hand from an agent session.
 #
-# The CI key is forced through /usr/local/sbin/holt-deploy-gate on amph, which accepts only
-# `rsync --server` into /opt/holt and `activate`, so this script uses nothing else.
+# The CI key logs in to amph as the unprivileged `deploy` user and is forced through
+# /usr/local/sbin/holt-deploy-gate, which accepts only `rsync --server` into /opt/holt and
+# `activate`, so this script uses nothing else.
 #
-#   HOLT_SSH_TARGET   user@host (default root@amph)
+#   HOLT_SSH_TARGET   user@host (default deploy@amph)
 #   HOLT_SSH          ssh command line (default: ssh with batch mode)
 
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-TARGET=${HOLT_SSH_TARGET:-root@amph}
+TARGET=${HOLT_SSH_TARGET:-deploy@amph}
 SSH=${HOLT_SSH:-ssh -o BatchMode=yes}
 REMOTE=/opt/holt
 

@@ -12,7 +12,8 @@ CI deploys on every push to `main` (`.github/workflows/deploy.yml`): typecheck, 
 | `holt-discord.service` | amph, `/opt/holt` (the bot; verify callback on `discord.port`, 8823) |
 | `holt.abstracteducation.loan` | DNS-only CNAME to `byod.abstracteducation.loan` (Cloudflare). The edges terminate TLS with a shared on-demand certificate and relay to amph `:9080` |
 | `/etc/openresty/conf.d/55-holt.conf` | amph; routes the name to `:8830` (`deploy/openresty/55-holt.conf`) |
-| `/usr/local/sbin/holt-deploy-gate` | amph; forced command for CI's key (`deploy/holt-deploy-gate.sh`) |
+| `/usr/local/sbin/holt-deploy-gate` | amph; forced command for CI's key, runs as `deploy` (`deploy/holt-deploy-gate.sh`) |
+| `/usr/local/sbin/holt-deploy-root` | amph; the two root steps `deploy` may sudo (`deploy/holt-deploy-root.sh`) |
 
 ## The bot and abulxt
 
@@ -70,14 +71,22 @@ Issued 2026-10-24: `abulxt` (`YrQcgTjDv0QH_3_6`, no expiry), `abstract` (`nKJEVj
    import, `publicOrigin: 'https://holt.abstracteducation.loan'`, generated `sessionSecret` and
    platform secrets (`openssl rand -base64 48`), and abulxt's `discord` block kept (drop the
    `discord: undefined` line). Mode 600.
-2. `install -m 0755 deploy/holt-deploy-gate.sh /usr/local/sbin/holt-deploy-gate`.
-3. Generate an ed25519 key for CI; add the public half to `/root/.ssh/authorized_keys` as
-   `restrict,command="/usr/local/sbin/holt-deploy-gate" ssh-ed25519 … holt-ci@y9x/holt`. Store the
-   private half as the repo secret `HOLT_DEPLOY_KEY`; set the variables `HOLT_DEPLOY_HOST` and
-   `HOLT_DEPLOY_KNOWN_HOSTS` (amph's host key line from `ssh-keyscan`).
-4. Copy `deploy/openresty/55-holt.conf` to `/etc/openresty/conf.d/`, `openresty -t`, reload.
-5. Cloudflare: `holt` CNAME `byod.abstracteducation.loan`, proxy off.
-6. Push to `main` (or run the workflow) and watch `activate`.
+2. `install -m 0755 deploy/holt-deploy-gate.sh /usr/local/sbin/holt-deploy-gate` and
+   `install -m 0755 deploy/holt-deploy-root.sh /usr/local/sbin/holt-deploy-root`.
+3. The `deploy` user (shared with abulxt's deploy on amph) and `/etc/sudoers.d/deploy` come from the
+   infra repo's `deploy_user` role (Fracital/infra). The sudoers line for holt is
+   `deploy ALL=(root) NOPASSWD: /usr/local/sbin/holt-deploy-root prepare, /usr/local/sbin/holt-deploy-root activate`.
+   Run `holt-deploy-root prepare` once to hand the code paths to `deploy`.
+4. Generate an ed25519 key for CI; add the public half to `/home/deploy/.ssh/authorized_keys` (root-owned)
+   as `restrict,command="/usr/local/sbin/holt-deploy-gate" ssh-ed25519 … holt-ci@y9x/holt`, and to
+   divide's root `authorized_keys` as a jump-only key:
+   `restrict,port-forwarding,command="/bin/false",permitopen="172.16.5.3:22" ssh-ed25519 … holt-ci@y9x/holt`.
+   Store the private half as the repo secret `HOLT_DEPLOY_KEY`; set the variables `HOLT_DEPLOY_HOST`
+   (`172.16.5.3`), `HOLT_DEPLOY_JUMP` (`root@91.199.82.174`) and `HOLT_DEPLOY_KNOWN_HOSTS` (divide's
+   and amph's host key lines, amph's under `172.16.5.3`).
+5. Copy `deploy/openresty/55-holt.conf` to `/etc/openresty/conf.d/`, `openresty -t`, reload.
+6. Cloudflare: `holt` CNAME `byod.abstracteducation.loan`, proxy off.
+7. Push to `main` (or run the workflow) and watch `activate`.
 
 ## Checks
 
