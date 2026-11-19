@@ -99,6 +99,7 @@ import { ChannelsAndRolesPage, ChannelsAndRolesSidebarRow, useChannelsAndRoles, 
 import { MessageAccessories, ReplyPreviewText, guardLinkClick, setEmbedSuppressPolicy, shouldHideContent, useMediaFallbacks } from './Embeds'
 import { InteractionHeader, MessageComponents, ThinkingContent, hasInteractionHeader, interactionReplyPlaceholder } from './Interactions'
 import { ForumPostTagsRow, ForumView, PostActionModal, PostGlyph, markPostSeen, postMenuEntries } from './Forum'
+import { openingGuild, rememberGuild } from './guildPick'
 
 // Discord's message length cap; the composer shows the remaining count when
 // within this threshold of the limit and blocks sends over it.
@@ -134,11 +135,10 @@ const GUILD_HEADER_HEIGHT = 49
 // The home guild's invite: the fallback for a guild without a vanity invite
 // (BridgeGuild.inviteUrl null).
 const FALLBACK_INVITE_URL = 'https://discord.gg/zKV3atanu'
-// Last-opened guild id, last channel per guild ({ guildId: channelId }), and
-// Hide Muted Channels per guild (Discord stores it per server). The legacy
-// single flag ('abulxt:chat-hide-muted') is the default for guilds without a
-// stored value.
-const LAST_GUILD_KEY = 'abulxt:chat-last-guild'
+// Last channel per guild ({ guildId: channelId }), and Hide Muted Channels
+// per guild (Discord stores it per server). The legacy single flag
+// ('abulxt:chat-hide-muted') is the default for guilds without a stored
+// value. The last-used guild is guildPick.ts's.
 const LAST_CHANNEL_KEY = 'abulxt:chat-last-channel'
 const HIDE_MUTED_KEY = 'abulxt:chat-hide-muted-guilds'
 const LEGACY_HIDE_MUTED_KEY = 'abulxt:chat-hide-muted'
@@ -166,9 +166,6 @@ function readStoredMap<T>(key: string): Record<string, T> {
   } catch {
     return {}
   }
-}
-function readLastGuild(): string | null {
-  try { return localStorage.getItem(LAST_GUILD_KEY) } catch { return null }
 }
 function rememberLastChannel(guildId: string, channelId: string) {
   const map = readStoredMap<string>(LAST_CHANNEL_KEY)
@@ -1197,7 +1194,8 @@ function MessageSkeleton({ appearance }: { appearance: 'compact' | 'cozy' }) {
   )
 }
 
-export function ChatPage() {
+/** homeGuild: the guild this site's chatbox opens on when the visitor has none of their own (guildPick.ts). */
+export function ChatPage({ homeGuild = null }: { homeGuild?: string | null } = {}) {
   // Every bridged guild the caller can view (the rail), in server order.
   const [guilds, setGuilds] = useState<BridgeGuild[]>([])
   const guildsRef = useRef<BridgeGuild[]>([])
@@ -1211,14 +1209,13 @@ export function ChatPage() {
   const channelsByGuildRef = useRef(channelsByGuild)
   channelsByGuildRef.current = channelsByGuild
   // The open guild (rail selection). The ref is written synchronously with the
-  // state so callbacks in the same tick see the switch; the id is persisted
-  // as the last-used guild.
+  // state so callbacks in the same tick see the switch. Only an explicit pick
+  // (selectGuild) is remembered as the last-used guild (guildPick.ts).
   const [activeGuildId, setActiveGuildIdState] = useState<string | null>(null)
   const activeGuildIdRef = useRef<string | null>(null)
   const setActiveGuildId = useCallback((guildId: string | null) => {
     activeGuildIdRef.current = guildId
     setActiveGuildIdState(guildId)
-    if (guildId) { try { localStorage.setItem(LAST_GUILD_KEY, guildId) } catch { /* ignore */ } }
   }, [])
   // Derived views of the open guild: the render code keeps reading
   // `channels` / `categories`.
@@ -1245,7 +1242,7 @@ export function ChatPage() {
   allChannelsRef.current = allChannels
   // Late-bound guild switch (defined below, once every piece of UI state it
   // resets exists) for earlier-declared callbacks.
-  const selectGuildRef = useRef<(guildId: string, target?: { channelId?: string | null }) => void>(() => {})
+  const selectGuildRef = useRef<(guildId: string, target?: { channelId?: string | null; remember?: boolean }) => void>(() => {})
   // Late-bound deep-link resolver (see applyChatLink).
   const applyChatLinkRef = useRef<() => 'none' | 'wait' | 'done'>(() => 'none')
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
@@ -1747,8 +1744,9 @@ export function ChatPage() {
 
   // Take a fresh guild list: load every guild's sidebar that isn't cached (or
   // is stale), and make sure a listed guild is open - the deep-link target,
-  // else the last-used guild, else the first. An open guild that vanished
-  // from the list (lost access, unbridged) falls back the same way.
+  // else the last-used guild, else the site's home guild, else the first
+  // (openingGuild, which remembers only the deep link's). An open guild that
+  // vanished from the list (lost access, unbridged) falls back the same way.
   const applyGuildList = useCallback((list: BridgeGuild[]) => {
     guildsRef.current = list
     setGuilds(list)
@@ -1763,13 +1761,10 @@ export function ChatPage() {
     }
     const link = readChatLink()
     const linkGuild = link?.guild ? String(link.guild) : null
-    const last = readLastGuild()
-    const pick = (linkGuild && list.some((g) => g.id === linkGuild) ? linkGuild : null)
-      || (last && list.some((g) => g.id === last) ? last : null)
-      || list[0].id
-    if (current) selectGuildRef.current(pick)
+    const pick = openingGuild(list.map((g) => g.id), linkGuild, homeGuild) ?? list[0].id
+    if (current) selectGuildRef.current(pick, { remember: false })
     else setActiveGuildId(pick)
-  }, [loadGuildChannels, setActiveGuildId])
+  }, [loadGuildChannels, setActiveGuildId, homeGuild])
   const reloadGuilds = useCallback(() => {
     bridgeGuilds().then(applyGuildList).catch(() => {})
   }, [applyGuildList])
@@ -4247,8 +4242,12 @@ export function ChatPage() {
   // channel - straight from the cache, refreshed in the background when old
   // or stale. The banner state and the sidebar scroll reset. Clicking the
   // already-open guild just scrolls its channel list to the top.
-  const selectGuild = useCallback((guildId: string, target?: { channelId?: string | null }) => {
+  // Every caller but applyGuildList's fallback is the visitor's own pick (the
+  // rail, a channel or message in another server, a followed link), so it is
+  // remembered unless `remember: false`.
+  const selectGuild = useCallback((guildId: string, target?: { channelId?: string | null; remember?: boolean }) => {
     if (!guildsRef.current.some((g) => g.id === guildId)) return
+    if (target?.remember !== false) rememberGuild(guildId)
     const scroller = barRef.current?.querySelector('.bar-scroller') ?? null
     if (guildId === activeGuildIdRef.current) {
       if (target?.channelId) { setCrSection(null); setActiveChannelId(target.channelId) }

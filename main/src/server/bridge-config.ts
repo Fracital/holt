@@ -5,6 +5,7 @@
 //     abulxt:   { license: 'eyJ…', guild: '1548417587291881574', channels: ['…'], categories: [] },
 //     lab:      { license: 'eyJ…', guild: '…', categories: ['…'] },
 //     nocturne: { license: 'eyJ…' },                     // licensed, no guild yet
+//     systemya: { license: 'eyJ…', defaultGuild: '…' },   // no guild of its own, opens another bridged guild
 //   }
 //
 // - Licensing: when `bridge` is present, holt honours only the licenses listed here (license.ts checks the
@@ -13,7 +14,10 @@
 // - Bridging: replaces discord.bridgeChannels / discord.bridgeCategories (still read when `bridge` is
 //   absent). Every listed channel or category must belong to the entry's guild; the bot skips any that
 //   does not, so a typo can never pull another guild's channel into a site.
-// - Each site's chatbox opens on its own guild; every bridged guild still shows in the server rail.
+// - Each site's chatbox opens on its home guild (homeGuildFor): `defaultGuild` when set, else its own `guild`.
+//   A deep link or the visitor's last-used guild (when still listed) wins over it; every bridged guild still
+//   shows in the server rail. `defaultGuild` may be any bridged guild, so a site without a guild of its own
+//   can open another site's; one that is not bridged is only a startup warning (defaultGuildWarnings).
 //
 // Pure: no I/O.
 
@@ -22,6 +26,8 @@ export interface BridgeEntry {
   /** The platform's embed license (a token), or null when the platform is not licensed here. */
   license: string | null
   guild: string | null
+  /** The guild this platform's chatbox opens on when the visitor has none listed of their own, or null. */
+  defaultGuild: string | null
   channels: string[]
   categories: string[]
 }
@@ -71,6 +77,8 @@ export function parseBridge(raw: unknown): BridgeEntry[] | null {
     if (v.license !== undefined && v.license !== null && license === null) fail(`${platform}.license`, 'must be a license token')
     const guild = typeof v.guild === 'string' && v.guild.trim() ? v.guild.trim() : null
     if (v.guild !== undefined && v.guild !== null && (guild === null || !SNOWFLAKE.test(guild))) fail(`${platform}.guild`, 'must be a Discord guild id')
+    const defaultGuild = typeof v.defaultGuild === 'string' && v.defaultGuild.trim() ? v.defaultGuild.trim() : null
+    if (v.defaultGuild !== undefined && v.defaultGuild !== null && (defaultGuild === null || !SNOWFLAKE.test(defaultGuild))) fail(`${platform}.defaultGuild`, 'must be a Discord guild id')
     const channels = snowflakes(`${platform}.channels`, v.channels)
     const categories = snowflakes(`${platform}.categories`, v.categories)
     if ((channels.length || categories.length) && guild === null) fail(platform, 'channels and categories need the guild they belong to')
@@ -84,7 +92,7 @@ export function parseBridge(raw: unknown): BridgeEntry[] | null {
       if (owner !== undefined) fail(platform, `${id} is already bridged by ${owner}`)
       idOwner.set(id, platform)
     }
-    entries.push({ platform, license, guild, channels, categories })
+    entries.push({ platform, license, guild, defaultGuild, channels, categories })
   }
   return entries
 }
@@ -110,6 +118,23 @@ export function bridgeTargets(config: { bridge?: unknown; discord?: { bridgeChan
 export function inExpectedGuild(targets: BridgeTargets, id: string, actualGuild: string): boolean {
   const expected = targets.expectedGuild.get(id)
   return expected === undefined || expected === actualGuild
+}
+
+/** The guild a platform's chatbox opens on first: its `defaultGuild`, else its own `guild`, else null. */
+export function homeGuildFor(entries: BridgeEntry[] | null, platform: string): string | null {
+  const entry = entries?.find((e) => e.platform === platform)
+  return entry ? entry.defaultGuild ?? entry.guild : null
+}
+
+/**
+ * A `defaultGuild` that no entry bridges anything from never shows in any chatbox's rail, so the chatbox
+ * opens its first listed guild instead. Not fatal (a guild may be bridged later), but logged at startup.
+ */
+export function defaultGuildWarnings(entries: BridgeEntry[] | null): string[] {
+  const bridged = new Set((entries ?? []).filter((e) => e.guild !== null && (e.channels.length || e.categories.length)).map((e) => e.guild))
+  return (entries ?? [])
+    .filter((e) => e.defaultGuild !== null && !bridged.has(e.defaultGuild))
+    .map((e) => `bridge.${e.platform}.defaultGuild: ${e.defaultGuild} is not a bridged guild (no bridge entry bridges channels from it); the chatbox opens its first listed guild instead`)
 }
 
 /** The licenses registered for one platform (null when `bridge` is absent: licensing is not registry-based). */

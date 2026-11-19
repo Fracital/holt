@@ -37,10 +37,11 @@ function takeChatLink(): void {
 applySavedTheme()
 takeChatLink()
 
-export function ChatMount() {
+/** homeGuild: the platform's home guild from the embed page (platform.ts), opened when the visitor has none. */
+export function ChatMount({ homeGuild = null }: { homeGuild?: string | null }) {
   useEffect(() => {
     window.addEventListener('storage', applySavedTheme)
     return () => window.removeEventListener('storage', applySavedTheme)
   }, [])
-  return <ChatPage />
+  return <ChatPage homeGuild={homeGuild} />
 }

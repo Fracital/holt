@@ -50,7 +50,7 @@ import { IdentityTokenError, verifyIdentityToken, type Principal } from './ident
 import { issueSession, readSession, SESSION_TTL_SECONDS } from './session.ts'
 import { principalFromPlatform, UserStateUnavailable } from './forward-auth.ts'
 import { checkLicense, readLicense, type LicenseRefusal } from './license.ts'
-import { registeredLicenses } from './bridge-config.ts'
+import { defaultGuildWarnings, homeGuildFor, registeredLicenses } from './bridge-config.ts'
 
 type EmbedMode = 'iframe' | 'proxy'
 /** `/<platform id>/<rest>`: proxy embedding. The id grammar matches platforms.ts SLUG. */
@@ -109,7 +109,7 @@ function loadEmbedShell(): EmbedShell {
 function platformBlock(platform: Platform, mode: EmbedMode, homeGuild: string | null = null): string {
   // tokenStorageKey is a key name, not a secret: the page reads the token itself on the platform's origin.
   const tokenStorageKey = mode === 'proxy' ? platform.userState?.tokenStorageKey ?? null : null
-  // homeGuild: the guild this site's chatbox opens on first (bridge.<platform>.guild).
+  // homeGuild: the guild this site's chatbox opens on first (bridge.<platform>.defaultGuild, else .guild).
   const data = JSON.stringify({ id: platform.id, name: platform.name, mode, origins: platform.allowedOrigins, links: platform.links, tokenStorageKey, chat: mode === 'proxy' && platform.chat, homeGuild })
   return `<script type="application/json" id="holt-platform">${data.replace(/</g, '\\u003c')}</script>`
 }
@@ -429,7 +429,7 @@ async function handle(request: http.IncomingMessage, response: http.ServerRespon
       // credentialless changes nothing for a page opened directly or framed by a site without COEP.
       response.setHeader('Cross-Origin-Embedder-Policy', 'credentialless')
       response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-      const homeGuild = config.bridge?.find((entry) => entry.platform === proxyPlatform.id)?.guild ?? null
+      const homeGuild = homeGuildFor(config.bridge, proxyPlatform.id)
       return sendText(response, 200, 'text/html; charset=utf-8', pageHtml(shell, proxyPlatform, 'proxy', homeGuild))
     }
     if (rest.startsWith(CHAT_API_PREFIX)) {
@@ -627,6 +627,7 @@ function handleUpgrade(request: http.IncomingMessage, socket: import('node:strea
 
 async function main(): Promise<void> {
   const config = await loadConfig()
+  for (const warning of defaultGuildWarnings(config.bridge)) console.warn(`[holt] ${warning}`)
   const shell = loadEmbedShell()
   const server = http.createServer((request, response) => {
     handle(request, response, config, shell).catch((error: unknown) => {

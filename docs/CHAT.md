@@ -69,6 +69,24 @@ layout doesn't mention render first; unknown ids are kept so a briefly missing
 server keeps its place. Folder expand state is per device (localStorage).
 Guests get no layout and no drag.
 
+**Which guild opens** (`pages/chat/guildPick.ts`). When no listed guild is
+open, the chatbox opens the deep-link guild, else the visitor's last-used
+guild (localStorage `holt:chat-last-guild`), else the site's **home
+guild**, else the first guild in the list; each only while it is listed.
+Only the visitor's own picks are remembered (a server clicked in the rail, a
+channel or message opened in another server, a followed deep link), never an
+automatic open, so the home guild keeps applying until they choose. The old
+`abulxt:chat-last-guild` key was written on every open and is no longer read
+(changed 2026-11-18; visitors start over on the home guild once).
+The home guild is `bridge.<platform>.defaultGuild`, else
+`bridge.<platform>.guild` (`bridge-config.ts homeGuildFor`); holt-service
+puts it in the embed page's platform block, so it is read when holt starts.
+`defaultGuild` lets a site with no guild of its own (systemya) open another
+site's guild; one nothing is bridged from is logged at startup and ignored
+in practice (it is never listed). The guild list itself is the same for
+every platform (`GET guilds`: home guild `discord.guildId` first, then by
+id).
+
 **Terminology.** Webhook delivery identities — web users and Discord users
 alike — are called **webhooks**. Chat roles and moderation apply to webhooks,
 not to site accounts.

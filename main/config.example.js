@@ -61,6 +61,10 @@ export default {
   //               deleting the line (or listing its lid in licensing.revoked).
   //   guild       The guild this site's chatbox opens on. Every bridged guild still shows in the server
   //               rail, so users can switch and chat in each.
+  //   defaultGuild  Optional. The guild the chatbox opens on instead of `guild`, for a visitor with no deep
+  //               link and no last-used guild still in their rail. Any bridged guild (another site's too), so
+  //               a site without a guild of its own can open one. holt logs a warning at startup when nothing
+  //               is bridged from it. Unset: `guild`, else the first guild in the rail.
   //   channels    Individual text/announcement channels of that guild.
   //   categories  Every text channel in these categories of that guild (also ones added later).
   // A channel or category that is not in the entry's guild is skipped (logged), never bridged elsewhere.
@@ -69,6 +73,7 @@ export default {
     abulxt: { license: 'CHANGE_ME', guild: '000000000000000000', channels: [], categories: [] },
     abstract: { license: 'CHANGE_ME' },
     nocturne: { license: 'CHANGE_ME' },
+    // systemya: { license: 'CHANGE_ME', defaultGuild: '000000000000000000' },
   },
 
   // Principal keys (`<namespace>:<subject>`) reported as admins on holt's own identity endpoints. Never
