@@ -12,6 +12,7 @@
     "test": "node --import tsx --test --test-skip-pattern='^top-level await$' 'src/**/*.test.mjs'",
     "e2e": "node --import tsx scripts/embed-e2e.mjs",
     "license": "tsx src/server/license-cli.ts",
+    "check-config": "tsx src/server/check-config-cli.ts",
     "chat-api": "vite preview --config vite.chat.config.ts"
   },
   "engines": {

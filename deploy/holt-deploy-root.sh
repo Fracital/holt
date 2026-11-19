@@ -75,6 +75,9 @@ sync_openresty() {
 activate() {
   cd "$ROOT"
   [[ -f config.js ]] || { log 'config.js is missing; set up the host first (docs/DEPLOY.md)'; exit 1; }
+  # The startup checks, before anything restarts: a config the new code refuses fails the deploy and
+  # leaves the running services up, instead of crash-looping them.
+  npm run --silent check-config || { log 'config.js fails the startup checks; nothing restarted'; exit 1; }
   local unit
   for unit in holt holt-discord holt-chat holt-lab; do
     # deploy owns deploy/: a link there must not copy a root-only file into world-readable /etc.

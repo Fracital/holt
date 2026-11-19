@@ -15,6 +15,22 @@ CI deploys on every push to `main` (`.github/workflows/deploy.yml`): typecheck, 
 | `/usr/local/sbin/holt-deploy-gate` | amph; forced command for CI's key, runs as `deploy` (`deploy/holt-deploy-gate.sh`) |
 | `/usr/local/sbin/holt-deploy-root` | amph; the two root steps `deploy` may sudo (`deploy/holt-deploy-root.sh`) |
 
+## Editing config.js by hand
+
+holt refuses a config it cannot use at startup (a bridge guild claimed twice, a license for another
+platform), and a restart then crash-loops every service. Check the edit before restarting:
+
+```sh
+cd /opt/holt
+cp -p config.js config.js.bak-<topic>-$(date +%Y%m%d%H%M%S)
+# edit config.js
+npm run check-config && systemctl restart holt-chat holt holt-discord
+```
+
+`check-config` runs the same checks without listening and prints only what failed. `activate` runs it
+before restarting anything, so a deploy whose code refuses the host's config fails and leaves the
+services running.
+
 ## The bot and abulxt
 
 The bot moved here from abulxt (bot-only files are holt's; the code it shares with abulxt's app server
