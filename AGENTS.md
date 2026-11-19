@@ -40,7 +40,9 @@ going; `VENDOR.md` says what came from abulxt; this file says how to work here.
   A plain string needs a reason next to it (data value, decorative, sole accessible name).
 - **The embed page CSP stays strict.** `script-src` is `'self'` plus the hashes of the build's own
   inline scripts (computed at startup in `holt-service.ts`). Never add `'unsafe-inline'` or
-  `'unsafe-eval'` to `script-src`. Page data goes in a `type="application/json"` block.
+  `'unsafe-eval'` to `script-src`. Page data goes in a `type="application/json"` block. No inline
+  event handlers either (`onerror=`/`onload=` in built HTML strings): the CSP blocks them and Chrome
+  reports each one. Use a listener (`twemoji.ts` handles emoji 404s with one on the document).
 - **The partner loader (`main/loader/holt-embed.js`) ships as written**: it runs on partner pages and
   is the documented protocol. It is still canary-checked by `make build`. Nothing else may bypass
   the pipeline without a documented, specific reason in the pipeline itself.

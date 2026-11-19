@@ -63,18 +63,37 @@ export function twemojiUrl(codepoint: string): string {
   return `${TWEMOJI_BASE}/${normalizeCodepoint(codepoint)}.png`
 }
 
-/** Build an <img class="emoji"> tag for a codepoint with alt text. If the CDN
- * 404s (asset we don't know about), swap to the native glyph so the message
- * still shows the emoji instead of a broken image. */
+/* Marks the <img> tags twemojiImg() builds, so the fallback below touches only
+ * those (not custom guild emoji, not the composer's emoji). */
+const FALLBACK_ATTR = 'data-twemoji-fallback'
+
+/* If the CDN 404s (an asset we don't know about), swap the broken <img> for a
+ * plain text node holding the native glyph (a Text node can never re-parse as
+ * markup), so the message still shows the emoji. This is one capture-phase
+ * listener on the document, not an inline onerror attribute: the embed page's
+ * CSP (script-src without 'unsafe-inline') blocks inline handlers, and Chrome
+ * reports a violation for every one the parser creates. `error` does not
+ * bubble, but capture reaches it; these images are light DOM (dangerouslySet-
+ * InnerHTML), never inside a HolyText shadow root. */
+if (typeof document !== 'undefined') {
+  document.addEventListener(
+    'error',
+    (event) => {
+      const img = event.target
+      if (img instanceof HTMLImageElement && img.hasAttribute(FALLBACK_ATTR)) {
+        img.replaceWith(document.createTextNode(img.alt))
+      }
+    },
+    true,
+  )
+}
+
+/** Build an <img class="emoji"> tag for a codepoint with alt text. A CDN 404
+ * falls back to the native glyph (listener above). */
 export function twemojiImg(codepoint: string, alt: string): string {
   const url = twemojiUrl(codepoint)
   const safeAlt = alt.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-  // On a CDN 404, swap the broken <img> for a plain text node holding the
-  // native glyph (a Text node can never re-parse as markup).
-  return (
-    `<img class="emoji" draggable="false" src="${url}" alt="${safeAlt}" ` +
-    `onerror="this.replaceWith(document.createTextNode(this.alt))" />`
-  )
+  return `<img class="emoji" draggable="false" src="${url}" alt="${safeAlt}" ${FALLBACK_ATTR} />`
 }
 
 /* Emoji matcher. The previous pattern used a broad `[ -㌀]` range that
