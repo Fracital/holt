@@ -10,22 +10,22 @@ const SECRET_B = 'b'.repeat(40)
 
 function entry(overrides = {}) {
   return {
-    id: 'nocturne',
-    name: 'Nocturne',
-    issuer: 'https://nocturne.lol',
+    id: 'partner',
+    name: 'Partner',
+    issuer: 'https://partner.example',
     secret: SECRET_A,
-    allowedOrigins: ['https://nocturne.lol'],
-    links: { account: 'https://nocturne.lol/account', settings: 'https://nocturne.lol/account' },
+    allowedOrigins: ['https://partner.example'],
+    links: { account: 'https://partner.example/account', settings: 'https://partner.example/account' },
     ...overrides,
   }
 }
 
 test('a platform defaults its namespace to its id and keeps optional links null', () => {
   const [platform] = parsePlatforms([entry()])
-  assert.equal(platform.identityNamespace, 'nocturne')
+  assert.equal(platform.identityNamespace, 'partner')
   assert.equal(platform.links.verifyEmail, null)
   assert.equal(platform.links.signIn, null)
-  assert.equal(frameAncestors(platform), 'frame-ancestors https://nocturne.lol')
+  assert.equal(frameAncestors(platform), 'frame-ancestors https://partner.example')
 })
 
 test('two platforms may share a namespace and a secret when they share an account system', () => {
@@ -45,10 +45,10 @@ test('a secret shared across namespaces is rejected', () => {
 test('reserved namespaces, short secrets, http origins and duplicate ids are rejected', () => {
   assert.throws(() => parsePlatforms([entry({ identityNamespace: 'discord' })]), /reserved/)
   assert.throws(() => parsePlatforms([entry({ secret: 'short' })]), /at least 32/)
-  assert.throws(() => parsePlatforms([entry({ allowedOrigins: ['http://nocturne.lol'] })]), /must be https/)
-  assert.throws(() => parsePlatforms([entry({ allowedOrigins: ['https://nocturne.lol/'] })]), /not an origin/)
-  assert.throws(() => parsePlatforms([entry(), entry({ secret: SECRET_B, identityNamespace: 'nocturne' })]), /duplicate id/)
-  assert.throws(() => parsePlatforms([entry({ links: { account: 'https://nocturne.lol/account' } })]), /links.settings is required/)
+  assert.throws(() => parsePlatforms([entry({ allowedOrigins: ['http://partner.example'] })]), /must be https/)
+  assert.throws(() => parsePlatforms([entry({ allowedOrigins: ['https://partner.example/'] })]), /not an origin/)
+  assert.throws(() => parsePlatforms([entry(), entry({ secret: SECRET_B, identityNamespace: 'partner' })]), /duplicate id/)
+  assert.throws(() => parsePlatforms([entry({ links: { account: 'https://partner.example/account' } })]), /links.settings is required/)
 })
 
 test('localhost origins are allowed over http for development', () => {

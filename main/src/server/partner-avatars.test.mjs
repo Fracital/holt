@@ -14,11 +14,11 @@ test('only globally routable addresses are fetched', () => {
 })
 
 test('source URLs: https on the default port, no credentials, no internal names or addresses', () => {
-  assert.ok(acceptableSourceUrl('https://cdn.nocturne.lol/a/b.png?v=2'))
+  assert.ok(acceptableSourceUrl('https://cdn.partner.example/a/b.png?v=2'))
   assert.ok(acceptableSourceUrl('https://8.8.8.8/a.png'))
-  for (const u of ['http://cdn.nocturne.lol/a.png', 'https://cdn.nocturne.lol:8443/a.png', 'https://u:p@cdn.nocturne.lol/a.png',
+  for (const u of ['http://cdn.partner.example/a.png', 'https://cdn.partner.example:8443/a.png', 'https://u:p@cdn.partner.example/a.png',
     'https://localhost/a.png', 'https://intranet/a.png', 'https://box.internal/a.png', 'https://127.0.0.1/a.png', 'https://[::1]/a.png',
-    'https://169.254.169.254/latest', 'data:image/png;base64,AA', `https://cdn.nocturne.lol/${'a'.repeat(3000)}`, 'nonsense']) {
+    'https://169.254.169.254/latest', 'data:image/png;base64,AA', `https://cdn.partner.example/${'a'.repeat(3000)}`, 'nonsense']) {
     assert.equal(acceptableSourceUrl(u), null, u)
   }
 })
@@ -43,20 +43,20 @@ test('moderation provider config', () => {
 
 test('a partner avatar source survives the session and the signed principal', () => {
   const secret = 'x'.repeat(40)
-  const principal = { key: 'nocturne:1', platformId: 'nocturne', name: 'n', emailVerified: true, avatar: null, avatarSource: 'https://cdn.nocturne.lol/a.png', tier: null }
+  const principal = { key: 'partner:1', platformId: 'partner', name: 'n', emailVerified: true, avatar: null, avatarSource: 'https://cdn.partner.example/a.png', tier: null }
   const back = readSession(issueSession(principal, secret), secret)
   assert.equal(back.avatar, null)
-  assert.equal(back.avatarSource, 'https://cdn.nocturne.lol/a.png')
-  assert.equal(readPrincipal(signPrincipal(back, secret), secret).avatarSource, 'https://cdn.nocturne.lol/a.png')
+  assert.equal(back.avatarSource, 'https://cdn.partner.example/a.png')
+  assert.equal(readPrincipal(signPrincipal(back, secret), secret).avatarSource, 'https://cdn.partner.example/a.png')
   const none = readSession(issueSession({ ...principal, avatarSource: undefined }, secret), secret)
   assert.equal('avatarSource' in none, false)
 })
 
 test('a relative avatar path resolves against the platform\'s user-state URL', async () => {
   const { principalFromUserState } = await import('./forward-auth.ts')
-  const platform = { id: 'nocturne', identityNamespace: 'nocturne', trusted: false }
-  const config = { url: 'https://nocturne.lol/api/auth/me', fields: { id: 'user.id', name: 'user.username', emailVerified: 'user.ok', avatar: 'user.avatar' } }
+  const platform = { id: 'partner', identityNamespace: 'partner', trusted: false }
+  const config = { url: 'https://partner.example/api/auth/me', fields: { id: 'user.id', name: 'user.username', emailVerified: 'user.ok', avatar: 'user.avatar' } }
   const p = principalFromUserState(platform, config, { user: { id: 5, username: 'n', ok: true, avatar: '/uploads/5.png' } })
   assert.equal(p.avatar, null)
-  assert.equal(p.avatarSource, 'https://nocturne.lol/uploads/5.png')
+  assert.equal(p.avatarSource, 'https://partner.example/uploads/5.png')
 })

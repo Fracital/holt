@@ -1,7 +1,7 @@
 // Issue and inspect embed licenses (license.ts). Run where config.js has `licensing.secret`, which is
 // only holt's host:
 //
-//   npm run license -- mint --platform nocturne --days 365 --note "Nocturne, annual"
+//   npm run license -- mint --platform partner --days 365 --note "Partner, annual"
 //   npm run license -- mint --platform abulxt                 (no --days: does not expire)
 //   npm run license -- inspect <license>
 //

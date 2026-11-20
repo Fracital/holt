@@ -10,18 +10,18 @@ import { parsePlatforms } from './platforms.ts'
 
 const SECRET = 's'.repeat(40)
 const [PLATFORM] = parsePlatforms([{
-  id: 'nocturne',
-  name: 'Nocturne',
-  issuer: 'https://nocturne.lol',
+  id: 'partner',
+  name: 'Partner',
+  issuer: 'https://partner.example',
   secret: SECRET,
-  allowedOrigins: ['https://nocturne.lol'],
-  links: { account: 'https://nocturne.lol/account', settings: 'https://nocturne.lol/account' },
+  allowedOrigins: ['https://partner.example'],
+  links: { account: 'https://partner.example/account', settings: 'https://partner.example/account' },
 }])
 const NOW = 1_800_000_000_000
 
 function claims(overrides = {}) {
   const iat = Math.floor(NOW / 1000)
-  return { iss: 'https://nocturne.lol', aud: 'holt', sub: 'u_42', iat, exp: iat + 120, name: 'Reed', email_verified: true, ...overrides }
+  return { iss: 'https://partner.example', aud: 'holt', sub: 'u_42', iat, exp: iat + 120, name: 'Reed', email_verified: true, ...overrides }
 }
 
 test('jwt: round trip, tamper, wrong secret, alg none', () => {
@@ -35,8 +35,8 @@ test('jwt: round trip, tamper, wrong secret, alg none', () => {
 })
 
 test('a valid identity token becomes a namespaced principal', () => {
-  const principal = verifyIdentityToken(signJwt(claims({ avatar: 'https://cdn.nocturne.lol/a.webp', tier: 'plus' }), SECRET), PLATFORM, NOW)
-  assert.deepEqual(principal, { key: 'nocturne:u_42', platformId: 'nocturne', name: 'Reed', emailVerified: true, avatar: null, avatarSource: 'https://cdn.nocturne.lol/a.webp', tier: 'plus' })
+  const principal = verifyIdentityToken(signJwt(claims({ avatar: 'https://cdn.partner.example/a.webp', tier: 'plus' }), SECRET), PLATFORM, NOW)
+  assert.deepEqual(principal, { key: 'partner:u_42', platformId: 'partner', name: 'Reed', emailVerified: true, avatar: null, avatarSource: 'https://cdn.partner.example/a.webp', tier: 'plus' })
 })
 
 test('issuer, audience, lifetime and expiry are enforced', () => {
@@ -49,7 +49,7 @@ test('issuer, audience, lifetime and expiry are enforced', () => {
   check({ sub: undefined }, /sub is required/)
   check({ sub: 'has space' }, /sub is malformed/)
   check({ name: '' }, /name is required/)
-  check({ avatar: 'http://cdn.nocturne.lol/a.webp' }, /must be https/)
+  check({ avatar: 'http://cdn.partner.example/a.webp' }, /must be https/)
   check({ tier: 'King Proxy' }, /tier is malformed/)
   assert.throws(() => verifyIdentityToken(signJwt(claims(), 'z'.repeat(40)), PLATFORM, NOW), /bad signature/)
 })

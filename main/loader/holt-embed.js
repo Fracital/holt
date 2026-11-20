@@ -4,7 +4,7 @@
 //   <script>
 //     Holt.mount({
 //       origin: 'https://holt.example.com',
-//       platform: 'nocturne',
+//       platform: 'partner',
 //       license: 'eyJ…',           // the embed license the holt operator issued for this site
 //       container: document.getElementById('chat'),
 //       // Your backend mints a short-lived identity token for the signed-in user (see docs/PLAN.md,

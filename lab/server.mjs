@@ -1,6 +1,6 @@
 // holt lab: a test partner site with its own account system, used to prove holt's embedding, licensing
-// and federation the way a real partner would use them. It copies nocturne.lol's scheme on purpose
-// (observed 2026-10-24): login returns a `sessionToken`, the page keeps it in localStorage under
+// and federation the way a real partner would use them. It copies a real partner site's scheme on purpose:
+// login returns a `sessionToken`, the page keeps it in localStorage under
 // `lab-session` and sends it as `X-Lab-Session`; `GET /api/auth/me` answers 200 with
 // `{"authenticated":false}` or `{"authenticated":true,"user":{id,username,emailNotice}}`.
 //

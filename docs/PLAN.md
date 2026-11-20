@@ -1,7 +1,7 @@
 # holt — plan
 
 holt is the abulxt community chatbox as its own service: one deployment on amph, one database, embedded
-by any **platform** (abulxt, the Abstract AI site, nocturne.lol, …) through an iframe. holt owns
+by any **platform** (abulxt, the Abstract AI site, partner sites, …) through an iframe. holt owns
 channels, messages, moderation, roles and the Discord bridge. It never owns accounts: every identity
 belongs to a platform, and every account action in the UI is a redirect to that platform's own pages.
 
@@ -21,9 +21,9 @@ identity-token mode below stays for platforms that cannot proxy.
 ## Shape
 
 ```
- platform page (https://nocturne.lol/…)            holt (https://holt.…, amph :8830 behind OpenResty)
+ platform page (https://partner.example/…)         holt (https://holt.…, amph :8830 behind OpenResty)
  ┌──────────────────────────────────┐              ┌──────────────────────────────────────────┐
- │ <script src=holt/holt-embed.js>  │  postMessage │ GET /embed?platform=nocturne  (CSP        │
+ │ <script src=holt/holt-embed.js>  │  postMessage │ GET /embed?platform=partner   (CSP        │
  │ Holt.mount({platform, getToken}) │◄────────────►│   frame-ancestors = platform origins)     │
  │   ▲ GET /api/holt-token          │   token /    │ POST /api/session  token -> holt session  │
  │   │ (platform backend mints a    │   navigate   │ /api/chat/*, /api/rt   Bearer session     │
@@ -73,7 +73,7 @@ page; a non-listed origin is refused by `frame-ancestors`).
 abulxt host to holt's `/abulxt/` (proxy embedding with abulxt's localStorage login, `chat: true`). holt
 serves abulxt's chatbox, vendored byte-identical (`chatClient`, `chatAssets`), with holt-owned stand-ins
 for navigation, sign-in and ads. The chatbox still calls abulxt's chat API on abulxt's origin, so phases 1
-and 2 below are what make it work for a platform without that API (nocturne).
+and 2 below are what make it work for a platform without that API (a partner site).
 
 **Phase 1 — server move.** Copy the chat server into `main/src/server/` and replace `DbUser` with
 `Principal` everywhere. The seams in abulxt today:
@@ -125,7 +125,7 @@ and keeps abulxt's chat working; steps marked ⚠ change production data or traf
    OpenResty routes `/api/discord/bridge/*` to it through holt's licensed proxy (verified with the
    holt-test account: signed-in send/edit/react/delete, live delivery to a guest browser). holt now owns
    the bridge API and its helpers (deleted from abulxt); the realtime socket stays on abulxt. Next:
-   federation (ext identities in the bridge API, holt-owned now) and nocturne.
+   federation (ext identities in the bridge API, holt-owned now) and partner platforms.
 1. *Identity seam in abulxt.* A `ChatIdentity` (`key`, `name`, `emailVerified`, `siteAdmin`, `tierFloor`,
    `discordId?`, `createdAt`, `avatarUrl`) built from `DbUser` in one adapter; every chat route,
    `writeDenialCore`, `chatPermsForUser`, onboarding, presence and `rt-api` take it instead of `DbUser`.
@@ -139,16 +139,16 @@ and keeps abulxt's chat working; steps marked ⚠ change production data or traf
    the chatbox there. Behind a per-platform flag; abulxt keeps its own API meanwhile.
 5. ⚠ *Cutover.* abulxt's platform flips to holt's chat API; abulxt's chat routes and chatbox copy are
    deleted, and holt owns `pages/chat` outright (vendoring for them ends).
-6. *nocturne.* Its platform entry (`userState`, cookie names, links), a license, its Discord guild or
+6. *A partner site.* Its platform entry (`userState`, cookie names, links), a license, its Discord guild or
    category set.
 
 **Federation (requested 2026-10-24): every platform's users in the same channels, as equals.** holt owns
 the bridge API now, so this is holt work, verified at each stage with holt-test plus a test platform:
 
-Done 2026-10-24 toward federation: forward-auth speaks nocturne's scheme (configurable token header,
-field fallbacks, negated emailVerified); nocturne is configured from its live site; **holt lab**
+Done 2026-10-24 toward federation: forward-auth speaks a partner's scheme (configurable token header,
+field fallbacks, negated emailVerified); a partner is configured from its live site; **holt lab**
 (`lab/server.mjs`, https://holtlab.abstracteducation.loan) is a licensed test partner with its own accounts
-in nocturne's scheme, used for every check below (lab users resolve as `lab:<id>`; the lab license reaches
+in that partner scheme, used for every check below (lab users resolve as `lab:<id>`; the lab license reaches
 only the lab; live revocation works).
 
 Settled for the remaining stages:
@@ -196,7 +196,7 @@ Decided while building, revisit if wanted:
   next to ext names so users can tell sites apart.
 - **F5 Client.** the chatbox on a non-abulxt platform calls `./_holt/api/discord/bridge` (api-base
   stand-in) and takes "who am I" from holt (auth-api stand-in), with sign-in going to the platform.
-- **F6 nocturne.** its userState URL + cookie name, `chat: true`, its license (issued), go live.
+- **F6 a partner site.** its userState URL + cookie name, `chat: true`, its license (issued), go live.
 
 **Standalone (owner's decisions 2026-10-24).** holt depends on nothing of abulxt's:
 - *Own database*: a `holt` database in the same Postgres container on amph, own role. Chat tables move in one
@@ -231,7 +231,7 @@ carry over unchanged; its strings join `obfuscation-strings.ts`. Every account a
   `name = username`, `email_verified`, `tier` from the active plan, `avatar` = approved avatar URL).
   `#/chat` becomes `Holt.mount(...)`. The Abstract AI host registers as platform `abstract`,
   namespace `abulxt`, links to its own account page.
-- nocturne.lol: one backend endpoint minting tokens with its secret, the loader script on its page,
+- A partner site: one backend endpoint minting tokens with its secret, the loader script on its page,
   its account URL in `links`. Nothing else.
 - Discord channels per platform: a guild (or `bridgeCategories` set) per platform, bans scoped per
   guild as today.

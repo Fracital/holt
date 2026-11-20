@@ -12,7 +12,7 @@ test('a guild per platform, with its license and what is bridged from it', () =>
   const entries = parseBridge({
     abulxt: { license: 'tok-a', guild: G1, channels: [C1, C2, C1] },
     lab: { license: 'tok-l', guild: G2, categories: [CAT] },
-    nocturne: { license: 'tok-n' },
+    partner: { license: 'tok-n' },
   })
   assert.deepEqual(entries.find((e) => e.platform === 'abulxt'), { platform: 'abulxt', license: 'tok-a', guild: G1, defaultGuild: null, channels: [C1, C2], categories: [] })
   const targets = bridgeTargets({ bridge: { abulxt: { guild: G1, channels: [C1] }, lab: { guild: G2, categories: [CAT] } } })
@@ -53,14 +53,14 @@ test('home guild: defaultGuild, else the platform\'s own guild, else none', () =
     abulxt: { guild: G1, channels: [C1] },
     fracital: { guild: G2, categories: [CAT] },
     systemya: { license: 'tok-s', defaultGuild: ` ${G2} ` },
-    nocturne: { license: 'tok-n' },
+    partner: { license: 'tok-n' },
     lab: { guild: '1600000000000000002', defaultGuild: G1 },
   })
   assert.equal(homeGuildFor(entries, 'systemya'), G2, 'a site without a guild opens another bridged one')
   assert.equal(homeGuildFor(entries, 'abulxt'), G1, 'unset: the platform\'s own guild, as before')
   assert.equal(homeGuildFor(entries, 'fracital'), G2)
   assert.equal(homeGuildFor(entries, 'lab'), G1, 'defaultGuild wins over the own guild')
-  assert.equal(homeGuildFor(entries, 'nocturne'), null, 'no guild and no default: the first listed guild, as before')
+  assert.equal(homeGuildFor(entries, 'partner'), null, 'no guild and no default: the first listed guild, as before')
   assert.equal(homeGuildFor(entries, 'ghost'), null)
   assert.equal(homeGuildFor(null, 'abulxt'), null, 'legacy config has no home guilds')
   assert.deepEqual(defaultGuildWarnings(entries), [])

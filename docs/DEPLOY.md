@@ -50,8 +50,8 @@ them, and nothing else does. On amph:
 
 ```sh
 cd /opt/holt
-npm run license -- mint --platform nocturne --days 365 --note "Nocturne, annual" > /root/nocturne.license
-npm run license -- inspect "$(cat /root/nocturne.license)"
+npm run license -- mint --platform partner --days 365 --note "Partner, annual" > /root/partner.license
+npm run license -- inspect "$(cat /root/partner.license)"
 ```
 
 Hand the license to the site out of band. To revoke one, add its `lid` to `licensing.revoked` and
@@ -59,8 +59,7 @@ restart holt (`systemctl restart holt`); new page loads are refused at once, and
 issued ends within 12 hours. Every issued license is kept in `/root/holt-licenses/<platform>.license`
 (root, 600).
 
-Issued 2026-10-24: `abulxt` (`YrQcgTjDv0QH_3_6`, no expiry), `abstract` (`nKJEVjNzF5K_4aDI`, no expiry),
-`nocturne` (`DAWyZavcxcV2athi`, until 2027-10-24, handed off privately).
+Issued 2026-10-24: `abulxt` (`YrQcgTjDv0QH_3_6`, no expiry), `abstract` (`nKJEVjNzF5K_4aDI`, no expiry).
 
 ## abulxt's and Abstract's mounts
 

@@ -14,33 +14,33 @@ test('a minted license licenses its platform, with or without an expiry', () => 
   const perpetual = mintLicense(SECRET, { platform: 'abulxt', note: 'first party' }, NOW)
   assert.equal(perpetual.license.expiresAt, null)
   assert.deepEqual(checkLicense(config(), 'abulxt', perpetual.token, NOW + 10 * 365 * 86_400_000), { ok: true, license: perpetual.license })
-  const yearly = mintLicense(SECRET, { platform: 'nocturne', days: 365 }, NOW)
+  const yearly = mintLicense(SECRET, { platform: 'partner', days: 365 }, NOW)
   assert.equal(yearly.license.expiresAt, NOW / 1000 + 365 * 86_400)
-  assert.equal(checkLicense(config(), 'nocturne', yearly.token, NOW).ok, true)
+  assert.equal(checkLicense(config(), 'partner', yearly.token, NOW).ok, true)
 })
 
 test('refusals: missing, another platform, expired, revoked, forged, tampered, wrong secret', () => {
-  const { token, license } = mintLicense(SECRET, { platform: 'nocturne', days: 30 }, NOW)
+  const { token, license } = mintLicense(SECRET, { platform: 'partner', days: 30 }, NOW)
   const reason = (platform, value, now = NOW, revoked = []) => {
     const result = checkLicense(config(revoked), platform, value, now)
     return result.ok ? 'ok' : result.reason
   }
-  assert.equal(reason('nocturne', undefined), 'missing')
-  assert.equal(reason('nocturne', ''), 'missing')
+  assert.equal(reason('partner', undefined), 'missing')
+  assert.equal(reason('partner', ''), 'missing')
   assert.equal(reason('abulxt', token), 'wrong-platform')
-  assert.equal(reason('nocturne', token, NOW + 31 * 86_400_000), 'expired')
-  assert.equal(reason('nocturne', token, NOW, [license.lid]), 'revoked')
-  assert.equal(reason('nocturne', mintLicense('x'.repeat(48), { platform: 'nocturne' }, NOW).token), 'invalid')
+  assert.equal(reason('partner', token, NOW + 31 * 86_400_000), 'expired')
+  assert.equal(reason('partner', token, NOW, [license.lid]), 'revoked')
+  assert.equal(reason('partner', mintLicense('x'.repeat(48), { platform: 'partner' }, NOW).token), 'invalid')
   const [h, , s] = token.split('.')
-  const forgedPayload = Buffer.from(JSON.stringify({ typ: 'holt-license', lid: license.lid, platform: 'nocturne', iat: NOW / 1000 })).toString('base64url')
-  assert.equal(reason('nocturne', `${h}.${forgedPayload}.${s}`), 'invalid')
-  assert.equal(reason('nocturne', 'not-a-token'), 'invalid')
-  assert.equal(reason('nocturne', 'x'.repeat(5000)), 'invalid')
+  const forgedPayload = Buffer.from(JSON.stringify({ typ: 'holt-license', lid: license.lid, platform: 'partner', iat: NOW / 1000 })).toString('base64url')
+  assert.equal(reason('partner', `${h}.${forgedPayload}.${s}`), 'invalid')
+  assert.equal(reason('partner', 'not-a-token'), 'invalid')
+  assert.equal(reason('partner', 'x'.repeat(5000)), 'invalid')
 })
 
 test('an identity token or a session signed with the same secret is not a license', () => {
-  assert.equal(readLicense(SECRET, signJwt({ typ: 'holt-session', lid: 'abcdefgh', platform: 'nocturne', iat: 1 }, SECRET)), null)
-  assert.equal(readLicense(SECRET, signJwt({ iss: 'x', aud: 'holt', sub: 'u', platform: 'nocturne', iat: 1 }, SECRET)), null)
+  assert.equal(readLicense(SECRET, signJwt({ typ: 'holt-session', lid: 'abcdefgh', platform: 'partner', iat: 1 }, SECRET)), null)
+  assert.equal(readLicense(SECRET, signJwt({ iss: 'x', aud: 'holt', sub: 'u', platform: 'partner', iat: 1 }, SECRET)), null)
 })
 
 test('minting refuses bad input', () => {

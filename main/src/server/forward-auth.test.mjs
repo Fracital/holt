@@ -160,34 +160,34 @@ test('config: tokenStorageKey must be a plain storage key', () => {
   assert.equal(platform({ url: 'https://partner.example/me', tokenStorageKey: 'abulxt:auth-token' }).userState.tokenStorageKey, 'abulxt:auth-token')
 })
 
-test('nocturne-style platform: raw token in X-Noc-Session, {authenticated, user}, verified unless emailNotice', async () => {
+test('partner-style platform: raw token in a custom header, {authenticated, user}, verified unless emailNotice', async () => {
   let seen = { header: null, auth: null, count: 0 }
-  const noc = http.createServer((request, response) => {
-    seen = { header: request.headers['x-noc-session'] ?? null, auth: request.headers.authorization ?? null, count: seen.count + 1 }
+  const partnerServer = http.createServer((request, response) => {
+    seen = { header: request.headers['x-partner-session'] ?? null, auth: request.headers.authorization ?? null, count: seen.count + 1 }
     response.setHeader('Content-Type', 'application/json')
-    // nocturne answers 200 either way; signed out is {"authenticated":false}.
-    if (request.headers['x-noc-session'] === 'noc_good_token_1') return response.end(JSON.stringify({ authenticated: true, user: { id: 501, name: 'Moon', emailNotice: null } }))
-    if (request.headers['x-noc-session'] === 'noc_unverified_2') return response.end(JSON.stringify({ authenticated: true, user: { id: 502, username: 'Star', emailNotice: { kind: 'verify' } } }))
+    // the partner answers 200 either way; signed out is {"authenticated":false}.
+    if (request.headers['x-partner-session'] === 'tok_good_1') return response.end(JSON.stringify({ authenticated: true, user: { id: 501, name: 'Moon', emailNotice: null } }))
+    if (request.headers['x-partner-session'] === 'tok_unverified_2') return response.end(JSON.stringify({ authenticated: true, user: { id: 502, username: 'Star', emailNotice: { kind: 'verify' } } }))
     response.end('{"authenticated":false}')
   })
-  await new Promise((resolve) => noc.listen(0, '127.0.0.1', resolve))
+  await new Promise((resolve) => partnerServer.listen(0, '127.0.0.1', resolve))
   try {
     const p = platform({
-      url: `http://127.0.0.1:${noc.address().port}/api/auth/me`,
-      tokenStorageKey: 'noc-session',
-      tokenHeader: 'X-Noc-Session',
+      url: `http://127.0.0.1:${partnerServer.address().port}/api/auth/me`,
+      tokenStorageKey: 'partner-session',
+      tokenHeader: 'X-Partner-Session',
       fields: { id: 'user.id', name: 'user.username|user.name|user.displayName', emailVerified: '!user.emailNotice', avatar: 'user.avatar|user.avatarUrl' },
     })
-    assert.deepEqual(p.userState.tokenHeader, { name: 'x-noc-session', bearer: false })
-    const moon = await principalFromPlatform(p, { authorization: 'Bearer noc_good_token_1' })
-    assert.equal(seen.header, 'noc_good_token_1', 'the raw token goes in X-Noc-Session')
+    assert.deepEqual(p.userState.tokenHeader, { name: 'x-partner-session', bearer: false })
+    const moon = await principalFromPlatform(p, { authorization: 'Bearer tok_good_1' })
+    assert.equal(seen.header, 'tok_good_1', 'the raw token goes in X-Partner-Session')
     assert.equal(seen.auth, null, 'no Authorization header is sent to the platform')
     assert.deepEqual([moon.key, moon.name, moon.emailVerified], ['partner:501', 'Moon', true], 'name from the fallback list; no notice = verified')
-    const star = await principalFromPlatform(p, { authorization: 'Bearer noc_unverified_2' })
+    const star = await principalFromPlatform(p, { authorization: 'Bearer tok_unverified_2' })
     assert.deepEqual([star.key, star.name, star.emailVerified], ['partner:502', 'Star', false], 'a verify-email notice = not verified')
-    assert.equal(await principalFromPlatform(p, { authorization: 'Bearer noc_unknown_token' }), null, '{"authenticated":false} is signed out')
+    assert.equal(await principalFromPlatform(p, { authorization: 'Bearer tok_unknown' }), null, '{"authenticated":false} is signed out')
   } finally {
-    noc.close()
+    partnerServer.close()
   }
 })
 

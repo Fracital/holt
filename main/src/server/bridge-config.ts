@@ -4,7 +4,7 @@
 //   bridge: {
 //     abulxt:   { license: 'eyJ…', guild: '1548417587291881574', channels: ['…'], categories: [] },
 //     lab:      { license: 'eyJ…', guild: '…', categories: ['…'] },
-//     nocturne: { license: 'eyJ…' },                     // licensed, no guild yet
+//     partner:  { license: 'eyJ…' },                     // licensed, no guild yet
 //     systemya: { license: 'eyJ…', defaultGuild: '…' },   // no guild of its own, opens another bridged guild
 //   }
 //

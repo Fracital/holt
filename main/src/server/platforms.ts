@@ -37,7 +37,7 @@ export interface UserStateConfig {
   tokenStorageKey: string | null
   /**
    * How the platform expects that token on its user-state URL: a header name and whether the value is
-   * `Bearer <token>` (abulxt) or the raw token (nocturne's `X-Noc-Session`). Default: Authorization, bearer.
+   * `Bearer <token>` (abulxt) or the raw token (e.g. a raw token in a custom header). Default: Authorization, bearer.
    */
   tokenHeader: { name: string; bearer: boolean }
 }

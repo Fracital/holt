@@ -72,7 +72,6 @@ export default {
   bridge: {
     abulxt: { license: 'CHANGE_ME', guild: '000000000000000000', channels: [], categories: [] },
     abstract: { license: 'CHANGE_ME' },
-    nocturne: { license: 'CHANGE_ME' },
     // systemya: { license: 'CHANGE_ME', defaultGuild: '000000000000000000' },
   },
 
@@ -166,18 +165,6 @@ export default {
         account: 'https://abulxt.example.com/#/account',
         settings: 'https://abulxt.example.com/#/settings',
       },
-    },
-    {
-      // Proxy embedding only: no token secret.
-      id: 'nocturne',
-      name: 'Nocturne',
-      allowedOrigins: ['https://nocturne.lol'],
-      userState: { url: 'https://nocturne.lol/chat/api/me', cookies: ['session'] },
-      links: {
-        account: 'https://nocturne.lol/',
-        settings: 'https://nocturne.lol/',
-      },
-      chat: true,
     },
   ],
 }

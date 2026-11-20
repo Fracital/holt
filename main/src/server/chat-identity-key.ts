@@ -1,5 +1,5 @@
 // Chat identity keys. Every web identity is `<namespace>:<subject>` (its platform's namespace: `abulxt:42`,
-// `lab:1`, `nocturne:u_77`); Discord users are `discord:<snowflake>`. abulxt accounts were `user:<n>` before
+// `lab:1`, `partner:u_77`); Discord users are `discord:<snowflake>`. abulxt accounts were `user:<n>` before
 // abulxt migration 037; such a key still reads as `abulxt:<n>` (an old tab, an old event), but is never written.
 //
 // Pure: no imports, so every chat module can use it without an import cycle.

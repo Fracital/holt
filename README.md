@@ -1,7 +1,7 @@
 # holt
 
 The community chatbox as a standalone service, embedded by platforms through an iframe. Platforms
-(abulxt, Abstract AI, nocturne.lol, …) keep their own accounts and vouch for users with a short-lived
+(abulxt, Abstract AI, partner sites, …) keep their own accounts and vouch for users with a short-lived
 signed token; holt owns channels, messages, moderation and the Discord bridge. Every account action
 in holt sends the user to the platform's own pages.
 
